@@ -86,7 +86,7 @@ Trivial bits of code and test cases (not the testing framework) are dedicated to
 
 ## Installation
 * Add mercury-xml as a git submodule to your project:
-  `git submodule add https://path-to/mercury-xml.git`
+  `git submodule add https://github.com/dzyr/mercury-xml.git`
 * Choose between two methods to access the xml module
   * The Mercury.modules method
   * The library method
