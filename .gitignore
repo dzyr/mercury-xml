@@ -1,0 +1,9 @@
+Mercury/
+*.err
+*.mh
+/src/libxml_read.a
+/src/libxml_read.dylib
+/src/xml_read.init
+/tests/test_xml
+/tests/Mercury.modules
+/tests/large.xml

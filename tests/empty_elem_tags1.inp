@@ -1,0 +1,3 @@
+<EmptyElemTag/><EmptyElemTag AttName1 = 'AttValue1' />    <EmptyElemTag/>
+	<EmptyElemTag AttName="AttValue"/>
+

@@ -1,0 +1,6 @@
+MCFLAGS = \
+	--warn-unused-imports			\
+	--infer-all				\
+	--optimize-constructor-last-call
+
+GRADEFLAGS = --use-grade-subdirs

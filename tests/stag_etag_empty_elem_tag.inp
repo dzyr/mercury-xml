@@ -1,0 +1,5 @@
+<Tag TagAttName="TagAttValue">
+	<EmptyElemTag AttName="AttValue"/>
+	<EmptyElemTag Att1Name="Att1Value"
+			Att2Name="Att2Value" />	
+</Tag>	
