@@ -97,7 +97,7 @@
 
     % Events that will be recognised in the XML stream
     % An EmptyElemTag triggers two events: STag and ETag. This is the same
-    % behaviour as in  expat.
+    % behaviour as in expat.
     %
 :- type content_event
     --->    elem_stag(elem_name, assoc_list(att_name, att_value))

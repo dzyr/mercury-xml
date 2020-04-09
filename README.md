@@ -78,26 +78,47 @@ This example is part of the test cases. You can find it here to see it in action
 - The expected result in `tests/test_cases.m`.
 
 
-## LICENSE
+## License
 Code is licensed under [Mozilla Public License 2.0](LICENSE-MPL-2.0.txt).
 
 Trivial bits of code and test cases (not the testing framework) are dedicated to the public domain by using an explicit Public Domain dedication in the header of the respective files.
 
 
 ## Installation
-* Add mercury-xml as a git submodule to your project:
-  `git submodule add https://github.com/dzyr/mercury-xml.git`
-* Choose between two methods to access the xml module
+Add mercury-xml as a git submodule to your project:
+
+    $ git submodule add https://github.com/dzyr/mercury-xml.git
+    $ git commit -am 'add submodule mercury-xml'
+
+This clones the submodule and registers it in your project.
+
+After cloning your project, the mercury-xml folder will be empty. Type
+
+    $ git submodule update --init
+
+to fetch all the data from the mercury-xml project and check out the appropriate commit listed in your superproject. You might make this part of an `init` target in your Makefile (see below).
+
+* Choose between two methods to access the `xml_read` module
   * The Mercury.modules method
   * The library method
 
 
 ### The Mercury.modules method
-    mmc -f ../mercury-xml/src/xml_read.m
-Example: have a look at Makefile-target Mercury.modules in tests/Makefile
+Generate a `Mercury.modules` file to tell Mercury where to find the `xml_read.m` source file. Simply add these targets to your `src/Makefile` and type `make` to compile your project.
+
+```
+.PHONY: default
+default: Mercury.modules
+	mmc --make $(YOUR_PROJECTS_MAIN_MODULE)
+
+
+Mercury.modules: $(wildcard *.m) $(wildcard ../mercury-xml/src/*.m)
+	mmc -f $(wildcard *.m) $(wildcard ../mercury-xml/src/*.m)
+```
 
 Add this to your Makefile to update the submodule by typing a simple:
-    make init
+
+    $ make init
 
 ```make
 .PHONY: init
@@ -107,7 +128,7 @@ init:
 ```
 
 ### The library method
-Add this to your Makefile and type `make init`:
+Add this to your Makefile and type `$ make init`:
 
 ```make
 .PHONY: init
@@ -124,9 +145,9 @@ install-mercury-xml:
 The library will be installed in the mercury-xml/.sandbox folder by default. This allows you to install different versions of the library across different projects.
 
 Don't forget to tell the Mercury compiler the place where the library is installed by writing this into your src/Mercury.options file:
+
 ```
 MCFLAGS = --mld ../mercury-xml/.sandbox/lib/mercury
-
 ```
 
 ## Testing

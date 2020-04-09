@@ -11,7 +11,7 @@ default:
 	cd src && $(MAKE) INSTALL_PREFIX=$(PROJECT_DIR)/.sandbox default
 
 
- .PHONY: install
+.PHONY: install
 install:
 	cd src && $(MAKE) INSTALL_PREFIX=$(PROJECT_DIR)/.sandbox install
 
