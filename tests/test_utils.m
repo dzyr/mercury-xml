@@ -35,7 +35,8 @@
     io::di, io::uo) is det.
 
 
-:- pred print_results(test_results::in, io::di, io::uo) is det.
+:- pred print_results(io.text_output_stream::in, test_results::in,
+    io::di, io::uo) is det.
 
 %-----------------------------------------------------------------------------%
 % Author of this section: Dirk Ziegemeyer
@@ -53,7 +54,7 @@
     ;       verbose.
 
 
-:- pred run_test_stream(
+:- pred run_test_stream(io.text_output_stream::in,
     pred(io.input_stream, T, io, io)::in(pred(in, out, di, uo) is det),
     verbosity::in, test_case(T)::in,
     test_results::in, test_results::out, io::di, io::uo) is det.
@@ -69,10 +70,11 @@
 
 %-----------------------------------------------------------------------------%
 
-run_test_stream(StreamToResultPred, Verbosity, TestCase, !Results, !IO) :-
+run_test_stream(OutputStream, StreamToResultPred, Verbosity, TestCase,
+    !Results, !IO) :-
     increment_total_tests(!Results),
     maybe_verbose(Verbosity,
-        io.format("RUNNING TEST: %s ... ",
+        io.format(OutputStream, "RUNNING TEST: %s ... ",
             [s(TestCase^test_name)]),
         !IO),
 
@@ -81,7 +83,7 @@ run_test_stream(StreamToResultPred, Verbosity, TestCase, !Results, !IO) :-
     (
         InputResult = ok(Stream),
         StreamToResultPred(Stream, ActualResult, !IO),
-        compare(Verbosity,
+        compare(OutputStream, Verbosity,
             TestCase^test_name,
             TestCase^test_expected, ActualResult, !Results, !IO)
     ;
@@ -92,18 +94,19 @@ run_test_stream(StreamToResultPred, Verbosity, TestCase, !Results, !IO) :-
 
 %-----------------------------------------------------------------------------%
 
-:- pred compare(verbosity::in, string::in, T::in, T::in,
+:- pred compare(io.text_output_stream::in, verbosity::in, string::in,
+    T::in, T::in,
     test_results::in, test_results::out, io::di, io::uo) is det.
 
-compare(Verbosity, Name, Expected, Result, !Results, !IO) :-
+compare(Stream, Verbosity, Name, Expected, Result, !Results, !IO) :-
     ( if Result = Expected
-    then maybe_verbose(Verbosity, io.write_string("PASSED. "), !IO)
+    then maybe_verbose(Verbosity, io.write_string(Stream, "PASSED. "), !IO)
     else
         add_failed_test(Name, !Results),
-        maybe_verbose(Verbosity, io.write_string("FAILED. "), !IO)
+        maybe_verbose(Verbosity, io.write_string(Stream, "FAILED. "), !IO)
     ),
-    maybe_verbose(Verbosity, io.print(Result), !IO),
-    maybe_verbose(Verbosity, nl, !IO).
+    maybe_verbose(Verbosity, io.print(Stream, Result), !IO),
+    maybe_verbose(Verbosity, io.nl(Stream), !IO).
 
 %-----------------------------------------------------------------------------%
 
@@ -158,23 +161,23 @@ add_aborted_test(Name, !Results) :-
     !Results ^ aborted_tests := [Name | !.Results ^ aborted_tests].
 
 
-print_results(Results, !IO) :-
+print_results(Stream, Results, !IO) :-
     Results = test_results(_Total, Failed, Aborted),
     list.length(Failed, NumFailed),
     list.length(Aborted, NumAborted),
     ( if NumFailed = 0, NumAborted = 0 then
-        io.write_string("ALL TESTS PASSED\n", !IO),
+        io.write_string(Stream, "ALL TESTS PASSED\n", !IO),
         io.remove_file("FAILED_TESTS", _, !IO)
     else
         ( if NumFailed > 0 then
-            io.write_string("SOME TESTS FAILED\n", !IO),
-            write_tests_to_file(Failed, "FAILED_TESTS", !IO)
+            io.write_string(Stream, "SOME TESTS FAILED\n", !IO),
+            write_tests_to_file(Stream, Failed, "FAILED_TESTS", !IO)
         else
             true
         ),
         ( if NumAborted > 0 then
-            io.write_string("SOME TESTS ABORTED\n", !IO),
-            write_tests_to_file(Aborted, "ABORTED_TESTS", !IO),
+            io.write_string(Stream, "SOME TESTS ABORTED\n", !IO),
+            write_tests_to_file(Stream, Aborted, "ABORTED_TESTS", !IO),
             io.set_exit_status(1, !IO)
         else
             true
@@ -182,14 +185,14 @@ print_results(Results, !IO) :-
     ).
 
 
-:- pred write_tests_to_file(list(string)::in, string::in,
-    io::di, io::uo) is det.
+:- pred write_tests_to_file(io.text_output_stream::in, list(string)::in,
+    string::in, io::di, io::uo) is det.
 
-write_tests_to_file(Tests, FileName, !IO) :-
+write_tests_to_file(Stream, Tests, FileName, !IO) :-
     io.open_output(FileName, OpenResult, !IO),
     (
         OpenResult = ok(File),
-        io.write_list(File, Tests, "\n", io.write_string, !IO),
+        io.write_list(File, Tests, "\n", io.write_string(Stream), !IO),
         io.nl(File, !IO)
     ;
         OpenResult = error(IO_Error),

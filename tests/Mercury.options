@@ -2,6 +2,7 @@ MCFLAGS = \
 	--warn-unused-imports			\
 	--warn-suspicious-recursion \
 	--warn-dead-preds \
+	--warn-implicit-stream-calls \
 	--warn-insts-with-functors-without-type \
 	--warn-interface-imports-in-parents \
 	--warn-suspicious-foreign-code \

@@ -41,12 +41,13 @@
 main(!IO) :-
     det_read_options(Options, !IO),
     FileName = "large.xml",
+    io.output_stream(OutputStream, !IO),
     (
         Options = help,
-        help(!IO)
+        help(OutputStream, !IO)
     ;
         Options = benchmark,
-        io.write_string("start benchmarking\n", !IO),
+        io.write_string(OutputStream, "start benchmarking\n", !IO),
         io.open_input(FileName, InputResult, !IO),
         (
             InputResult = ok(Stream),
@@ -56,7 +57,7 @@ main(!IO) :-
             ),
             (
                 EventsResult = ok(_),
-                io.format("%d ms\n", [i(Time)], !IO)
+                io.format(OutputStream, "%d ms\n", [i(Time)], !IO)
             ;
                 EventsResult = error(_, _),
                 require.error("error during benchmarking")
@@ -67,10 +68,10 @@ main(!IO) :-
         )
     ;
         Options = test(Verbosity),
-        run_tests(Verbosity, !IO)
+        run_tests(OutputStream, Verbosity, !IO)
     ;
         Options = write_large_file,
-        io.write_string("write large test file\n", !IO),
+        io.write_string(OutputStream, "write large test file\n", !IO),
         io.open_output(FileName, Result, !IO),
         (
             Result = ok(Stream),
@@ -87,32 +88,33 @@ main(!IO) :-
 
 %-----------------------------------------------------------------------------%
 
-:- pred run_tests(verbosity::in, io::di, io::uo) is det.
-
-run_tests(Verbosity, !IO) :-
-    run_tests2(Verbosity, init_test_results, Results, !IO),
-    print_results(Results, !IO).
-
-
-:- pred run_tests2(verbosity::in, test_results::in, test_results::out,
+:- pred run_tests(io.text_output_stream::in, verbosity::in,
     io::di, io::uo) is det.
 
-run_tests2(Verbosity, !Results, !IO) :-
+run_tests(Stream, Verbosity, !IO) :-
+    run_tests2(Stream, Verbosity, init_test_results, Results, !IO),
+    print_results(Stream, Results, !IO).
+
+
+:- pred run_tests2(io.text_output_stream::in, verbosity::in,
+    test_results::in, test_results::out, io::di, io::uo) is det.
+
+run_tests2(Stream, Verbosity, !Results, !IO) :-
     % Run tests: xml_read.fold_content
     list.foldl2(
-        run_test_stream(test_fold_content_helper, Verbosity),
+        run_test_stream(Stream, test_fold_content_helper, Verbosity),
         get_tests_foldl_content, !Results, !IO),
 
 
     % Run tests: xml_read.get_xml_declaration
     list.foldl2(
-        run_test_stream(xml_read.get_xml_declaration, Verbosity),
+        run_test_stream(Stream, xml_read.get_xml_declaration, Verbosity),
         get_tests_get_xml_declaration, !Results, !IO),
 
 
     % Run tests: example
     list.foldl2(
-        run_test_stream(read_example_from_stream, Verbosity),
+        run_test_stream(Stream, read_example_from_stream, Verbosity),
         get_test_example, !Results, !IO).
 
 %-----------------------------------------------------------------------------%
@@ -256,11 +258,11 @@ get_verbosity(OptionTable) = X :-
 
 %-----------------------------------------------------------------------------%
 
-:- pred help(io::di, io::uo) is det.
+:- pred help(io.text_output_stream::in, io::di, io::uo) is det.
 
-help(!IO) :-
-    io.write_string("Usage: test_xml [<options>]\n", !IO),
-    io.write_strings([
+help(Stream, !IO) :-
+    io.write_string(Stream, "Usage: test_xml [<options>]\n", !IO),
+    io.write_strings(Stream, [
         "Options:\n",
         "\t-h, --help\n",
         "\t\tPrint this message.\n",
