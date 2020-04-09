@@ -1,5 +1,11 @@
 MCFLAGS = \
 	--warn-unused-imports			\
+	--warn-suspicious-recursion \
+	--warn-dead-preds \
+	--warn-insts-with-functors-without-type \
+	--warn-interface-imports-in-parents \
+	--warn-suspicious-foreign-code \
+	--inform-incomplete-switch \
 	--infer-all				\
 	--optimize-constructor-last-call
 
