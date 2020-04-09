@@ -1,5 +1,6 @@
 MCFLAGS = \
 	--warn-unused-imports			\
+	--warn-inconsistent-pred-order-clauses \
 	--infer-all				\
 	--optimize-constructor-last-call
 
