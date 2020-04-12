@@ -171,7 +171,6 @@
 
 %-----------------------------------------------------------------------------%
 % XXX evaluate possible speedup of these changes
-% - Use io.read_char_unboxed instead of io.read_char
 % - Parallelisation of folding over content: continue reading the stream while
 %   accumulating the just read content in parallel
 % - Use pragma inline
@@ -204,9 +203,9 @@ get_xml_declaration(Stream, X, !IO) :-
     ok_error(xml_error)::out, io::di, io::uo) is det.
 
 get_xml_declaration_until_end(Stream, X, !IO) :-
-    io.read_char(Stream, Result, !IO),
+    io.read_char_unboxed(Stream, Result, Char, !IO),
     (
-        Result = ok(Char),
+        Result = ok,
         ( if Char = ('?') then
             io.read_char(Stream, NextResult, !IO),
             (
@@ -403,9 +402,9 @@ get_etag(Stream, X, !IO) :-
     ok_error(xml_error)::out, io::di, io::uo) is det.
 
 get_optional_whitespace_until_gt(Stream, X, !IO) :-
-    io.read_char(Stream, Result, !IO),
+    io.read_char_unboxed(Stream, Result, Char, !IO),
     (
-        Result = ok(Char),
+        Result = ok,
         ( if is_xml_whitespace(Char) then
             get_optional_whitespace_until_gt(Stream, X, !IO)
         else if Char = ('>') then
@@ -437,9 +436,9 @@ get_optional_whitespace_until_gt(Stream, X, !IO) :-
     io::di, io::uo) is det.
 
 get_content_token(Stream, X, !IO) :-
-    io.read_char(Stream, Result, !IO),
+    io.read_char_unboxed(Stream, Result, Char, !IO),
     (
-        Result = ok(Char),
+        Result = ok,
         ( if is_xml_whitespace(Char) then
             get_content_token(Stream, X, !IO)
         else if Char = ('<') then
@@ -461,9 +460,9 @@ get_content_token(Stream, X, !IO) :-
     io::di, io::uo) is det.
 
 get_content_token_past_left_angle_bracket(Stream, X, !IO) :-
-    io.read_char(Stream, Result, !IO),
+    io.read_char_unboxed(Stream, Result, Char, !IO),
     (
-        Result = ok(Char),
+        Result = ok,
         ( if is_name_start_char(Char) then
             X = ok(stag_or_empty_elem_tag_start(Char))
         else if Char = ('/') then
@@ -490,12 +489,12 @@ get_content_token_past_left_angle_bracket(Stream, X, !IO) :-
     io::di, io::uo) is det.
 
 get_textual_data(Stream, Acc0, X, !IO) :-
-    io.read_char(Stream, Result, !IO),
+    io.read_char_unboxed(Stream, Result, Char, !IO),
     (
-        Result = ok(Char),
+        Result = ok,
         ( if Char = ('<') then
             io.putback_char(Stream, Char, !IO),
-            X = ok(string.from_char_list(list.reverse(Acc0)))
+            X = ok(string.from_rev_char_list(Acc0))
         else
             get_textual_data(Stream, [Char | Acc0], X, !IO)
         )
@@ -533,9 +532,9 @@ get_textual_data(Stream, Acc0, X, !IO) :-
     io::di, io::uo) is det.
 
 get_token_past_elem_name(Stream, PastWhitespace, X, !IO) :-
-    io.read_char(Stream, Result, !IO),
+    io.read_char_unboxed(Stream, Result, Char, !IO),
     (
-        Result = ok(Char),
+        Result = ok,
         ( if Char = ('>') then
             X = ok(closing_gt)
         else if Char = ('/') then
@@ -578,9 +577,9 @@ get_token_past_elem_name(Stream, PastWhitespace, X, !IO) :-
     maybe_error(string, xml_error)::out, io::di, io::uo) is det.
 
 get_name(Stream, X, !IO) :-
-    io.read_char(Stream, Result, !IO),
+    io.read_char_unboxed(Stream, Result, Char, !IO),
     (
-        Result = ok(Char),
+        Result = ok,
         ( if is_name_start_char(Char) then
             get_rest_of_name(Stream, Char, X, !IO)
         else
@@ -604,7 +603,7 @@ get_rest_of_name(Stream, NameStartChar, X, !IO) :-
     get_rest_of_name2(Stream, [NameStartChar], Result, !IO),
     (
         Result = ok(Chars),
-        X = ok(string.from_char_list(list.reverse(Chars)))
+        X = ok(string.from_rev_char_list(Chars))
     ;
         Result = error(Error),
         X = error(Error)
@@ -617,9 +616,9 @@ get_rest_of_name(Stream, NameStartChar, X, !IO) :-
     maybe_error(list(char), xml_error)::out, io::di, io::uo) is det.
 
 get_rest_of_name2(Stream, Acc0, X, !IO) :-
-    io.read_char(Stream, Result, !IO),
+    io.read_char_unboxed(Stream, Result, Char, !IO),
     (
-        Result = ok(Char),
+        Result = ok,
         ( if is_name_char(Char) then
             get_rest_of_name2(Stream, [Char | Acc0], X, !IO)
         else
@@ -702,7 +701,7 @@ get_rest_of_attribute(Stream, NameStartChar, X, !IO) :-
                 AttValueResult = ok(Chars),
                 X = ok(
                     att_name(AttName) -
-                    att_value(string.from_char_list(list.reverse(Chars)))
+                    att_value(string.from_rev_char_list(Chars))
                 )
             ;
                 AttValueResult = error(AttValueError),
@@ -726,9 +725,9 @@ get_rest_of_attribute(Stream, NameStartChar, X, !IO) :-
     maybe_error(att_value_quotation, xml_error)::out, io::di, io::uo) is det.
 
 get_eq_until_att_value_start_quote(Stream, X, !IO) :-
-    io.read_char(Stream, Result, !IO),
+    io.read_char_unboxed(Stream, Result, Char, !IO),
     (
-        Result = ok(Char),
+        Result = ok,
         ( if is_xml_whitespace(Char) then
             get_eq_until_att_value_start_quote(Stream, X, !IO)
         else if Char = ('=') then
@@ -756,9 +755,9 @@ get_eq_until_att_value_start_quote(Stream, X, !IO) :-
     maybe_error(att_value_quotation, xml_error)::out, io::di, io::uo) is det.
 
 get_att_value_start_quote(Stream, X, !IO) :-
-    io.read_char(Stream, Result, !IO),
+    io.read_char_unboxed(Stream, Result, Char, !IO),
     (
-        Result = ok(Char),
+        Result = ok,
         ( if is_xml_whitespace(Char) then
             get_att_value_start_quote(Stream, X, !IO)
         else if is_att_value_start_char(Char, AttValueQuote) then
@@ -796,9 +795,9 @@ is_att_value_start_char('\'',   single_quote).
     io::di, io::uo) is det.
 
 get_attribute_value(Stream, StartQuote, Acc0, X, !IO) :-
-    io.read_char(Stream, Result, !IO),
+    io.read_char_unboxed(Stream, Result, Char, !IO),
     (
-        Result = ok(Char),
+        Result = ok,
         ( if is_special_att_value_token(Char, StartQuote, Token) then
             (
                 Token = closing_quote,
@@ -938,7 +937,7 @@ decode_entity_ref(quot) = ('"').
     maybe_error(entity_ref, xml_error)::out, io::di, io::uo) is det.
 
 get_entity_ref(Stream, Result, !IO) :-
-    io.read_char(Stream, ReadCharResult, !IO),
+    io.read_char_unboxed(Stream, ReadCharResult, Char, !IO),
     (
         ReadCharResult = error(Error),
         Result = error(io_error(Error))
@@ -946,7 +945,7 @@ get_entity_ref(Stream, Result, !IO) :-
         ReadCharResult = eof,
         Result = error(unexpected_eof)
     ;
-        ReadCharResult = ok(Char),
+        ReadCharResult = ok,
         ( if Char = 'a' then
             read_amp_apos(Stream, Result, !IO)
         else if Char = 'q' then
@@ -988,7 +987,7 @@ get_entity_ref(Stream, Result, !IO) :-
     maybe_error(entity_ref, xml_error)::out, io::di, io::uo) is det.
 
 read_amp_apos(Stream, Result, !IO) :-
-    io.read_char(Stream, ReadCharResult, !IO),
+    io.read_char_unboxed(Stream, ReadCharResult, Char, !IO),
     (
         ReadCharResult = error(Error),
         Result = error(io_error(Error))
@@ -996,7 +995,7 @@ read_amp_apos(Stream, Result, !IO) :-
         ReadCharResult = eof,
         Result = error(unexpected_eof)
     ;
-        ReadCharResult = ok(Char),
+        ReadCharResult = ok,
         ( if Char = 'm' then
             read_keyword_chars(Stream, ['p', ';'], unknown_entity_ref_name,
                 X, !IO),
@@ -1031,9 +1030,9 @@ read_amp_apos(Stream, Result, !IO) :-
 read_keyword_chars(_, [], _, ok, !IO).
 
 read_keyword_chars(Stream, [H|T], XmlError, X, !IO) :-
-    io.read_char(Stream, Result, !IO),
+    io.read_char_unboxed(Stream, Result, Char, !IO),
     (
-        Result = ok(Char),
+        Result = ok,
         ( if Char = H then
             read_keyword_chars(Stream, T, XmlError, X, !IO)
         else
