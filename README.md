@@ -13,9 +13,9 @@ To accumulate XML events in a list:
 
     xml_read.fold_content(list.cons, Stream, [], Result, !IO)
 
-Unlike expat and SAX, you don't register event handler functions. Every STag and ETag will be passed to the accumulator predicate. Textual data will only trigger an event if it is not whitespace-only. This behaviour is choosen to suppress whitespace that is only used to format/indent the XML.
+Unlike expat and SAX, you don't register event handler functions. Every STag and ETag will be passed to the accumulator predicate. Textual data will only trigger an event if it is not whitespace-only. This behaviour is chosen to suppress whitespace that is only used to format/indent the XML.
 
-If textual data is not whitepace-only, it will be passed to the accumulator predicate, ignoring leading whitespace.
+If textual data is not whitespace-only, it will be passed to the accumulator predicate, ignoring leading whitespace.
 
 You might accumulate XML events in a custom data structure directly or build a generic XML-DOM first and query it later.
 
