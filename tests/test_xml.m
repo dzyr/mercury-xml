@@ -239,7 +239,7 @@ det_read_options(X, !IO) :-
         GetoptResult = error(Msg),
         require.error(string.format(
             "test_xml: %s\ntest_xml: use --help for more information.\n",
-            [s(Msg)]))
+            [s(option_error_to_string(Msg))]))
     ).
 
 %-----------------------------------------------------------------------------%
