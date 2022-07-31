@@ -9,6 +9,21 @@
 % License, v. 2.0. If a copy of the MPL was not distributed with this
 % file, You can obtain one at https://mozilla.org/MPL/2.0/.
 %-----------------------------------------------------------------------------%
+%
+% An XML streaming parser.
+% It splits the XML stream into events - e.g. STag, ETag, textual data.
+%
+% The parsing strategy differs from that of using traditional parser
+% combinators implementing e.g. parsing expressing grammar (PEG) rules
+% because backtracking over stream data is not allowed.
+% Especially not available are the following rules from PEG:
+% - Ordered choice
+% - Lookahead
+%
+% The Mercury compiler enforces this behaviour because the predicates
+% handling xml stream access use unique modes.
+%
+%-----------------------------------------------------------------------------%
 
 :- module xml_read.
 :- interface.
@@ -16,6 +31,7 @@
 
 :- import_module assoc_list.
 :- import_module io.
+:- import_module maybe.
 :- import_module stream.
 
 %-----------------------------------------------------------------------------%
@@ -161,11 +177,36 @@
 
 %-----------------------------------------------------------------------------%
 
+:- type event_or_eof
+    --->    event(content_event)
+    ;       eof.
+
+
+:- type buffer.
+
+
+:- func init_buffer = (buffer::uo) is det.
+
+
+    % Get the next xml event from the stream.
+    %
+    % Recogise STag, ETag, EmptyElemTag and textual data.
+    % Whitespace between markup will be ignored.
+    % Non-whitespace textual data will be recognised (discarding leading
+    % whitespace).
+    %
+    % XXX ignore comments in xml stream
+    %
+:- pred get_content_event(io.input_stream::in,
+    maybe_error(event_or_eof, xml_error)::out,
+    buffer::in, buffer::out, io::di, io::uo) is det.
+
+%-----------------------------------------------------------------------------%
+
 :- implementation.
 
 :- import_module char.
 :- import_module list.
-:- import_module maybe.
 :- import_module pair.
 :- import_module string.
 
@@ -236,22 +277,22 @@ get_xml_declaration_until_end(Stream, X, !IO) :-
 %-----------------------------------------------------------------------------%
 
 fold_content(Pred, Stream, Acc0, X, !IO) :-
-    get_content_event(Stream, Result, !IO),
+    get_content_event(Stream, Result, init_buffer, Next, !IO),
     (
         Result = ok(EventOrEof),
         (
-            EventOrEof = event(current_and_next_event(Event, MaybeNextEvent)),
+            EventOrEof = event(Event),
             Pred(Event, Acc0, Acc1),
             (
-                MaybeNextEvent = next_event_unknown_yet,
+                Next = empty,
                 Acc = Acc1
             ;
-                MaybeNextEvent = etag_past_empty_elem_tag(ElemName),
+                Next = etag(ElemName),
                 Pred(elem_etag(ElemName), Acc1, Acc)
             ),
             fold_content(Pred, Stream, Acc, X, !IO)
         ;
-            EventOrEof = eof_event,
+            EventOrEof = eof,
             X = ok(Acc0)
         )
     ;
@@ -261,83 +302,81 @@ fold_content(Pred, Stream, Acc0, X, !IO) :-
 
 %-----------------------------------------------------------------------------%
 
-:- type current_and_next_event
-    --->    current_and_next_event(content_event, maybe_next_event).
-
-
-:- type event_or_eof
-    --->    event(current_and_next_event)
-    ;       eof_event.
-
-
-    % An EmptyElemTag will trigger two separate events: STag and ETag
+    % An EmptyElemTag triggers two separate events: STag and ETag. The
+    % second ETag will be placed in the buffer.
     %
-:- type maybe_next_event
-    --->    etag_past_empty_elem_tag(elem_name)
-    ;       next_event_unknown_yet.
+:- type buffer
+    --->    etag(elem_name)
+    ;       empty.
 
 
-    % Recogise STag, ETag, EmptyElemTag and textual data
-    % Whitespace between markup will be ignored
-    % Non-whitespace textual data will be recognised (discarding leading
-    % whitespace)
-    %
-    % XXX ignore Comment
-    %
-:- pred get_content_event(io.input_stream::in,
-    maybe_error(event_or_eof, xml_error)::out,
-    io::di, io::uo) is det.
+init_buffer = empty.
 
-get_content_event(Stream, X, !IO) :-
-    get_content_token(Stream, Result, !IO),
+
+get_content_event(Stream, X, Buffer0, Buffer, !IO) :-
     (
-        Result = ok(Token),
-        (
-            Token = stag_or_empty_elem_tag_start(NameStartChar),
-            get_stag_or_empty_elem_tag(Stream, NameStartChar, TagResult, !IO),
-            (
-                TagResult = ok(Event),
-                X = ok(event(Event))
-            ;
-                TagResult = error(TagError),
-                X = error(TagError)
-            )
-        ;
-            Token = etag_start,
-            get_etag(Stream, EtagElemNameResult, !IO),
-            (
-                EtagElemNameResult = ok(EtagElemName),
-                X = ok(event(current_and_next_event(
-                    elem_etag(EtagElemName),
-                    next_event_unknown_yet
-                )))
-            ;
-                EtagElemNameResult = error(EtagElemNameError),
-                X = error(EtagElemNameError)
-            )
-        ;
-            Token = non_whitespace_char(TextStartChar),
-            get_textual_data(Stream, [TextStartChar], TextResult, !IO),
-            (
-                TextResult = ok(TextString),
-                X = ok(event(current_and_next_event(
-                    data(TextString),
-                    next_event_unknown_yet
-                )))
-            ;
-                TextResult = error(TextError),
-                X = error(TextError)
-            )
-        ;
-            Token = eof,
-            X = ok(eof_event)
-        )
+        Buffer0 = etag(Name),
+        X = ok(event(elem_etag(Name))),
+        Buffer = empty
     ;
-        Result = error(Msg),
-        X = error(Msg)
+        Buffer0 = empty,
+        get_content_token(Stream, Result, !IO),
+        (
+            Result = ok(Token),
+            (
+                Token = stag_or_empty_elem_tag_start(NameStartChar),
+                get_stag_or_empty_elem_tag(Stream, NameStartChar, TagResult,
+                    !IO),
+                (
+                    TagResult = ok(current_and_next_event(Event, Next)),
+                    X = ok(event(Event)),
+                    Buffer = Next
+                ;
+                    TagResult = error(TagError),
+                    X = error(TagError),
+                    Buffer = empty
+                )
+            ;
+                Token = etag_start,
+                get_etag(Stream, EtagElemNameResult, !IO),
+                (
+                    EtagElemNameResult = ok(EtagElemName),
+                    X = ok(event(elem_etag(EtagElemName))),
+                    Buffer = empty
+                ;
+                    EtagElemNameResult = error(EtagElemNameError),
+                    X = error(EtagElemNameError),
+                    Buffer = empty
+                )
+            ;
+                Token = non_whitespace_char(TextStartChar),
+                get_textual_data(Stream, [TextStartChar], TextResult, !IO),
+                (
+                    TextResult = ok(TextString),
+                    X = ok(event(data(TextString))),
+                    Buffer = empty
+                ;
+                    TextResult = error(TextError),
+                    X = error(TextError),
+                    Buffer = empty
+                )
+            ;
+                Token = eof,
+                X = ok(eof),
+                Buffer = empty
+            )
+        ;
+            Result = error(Msg),
+            X = error(Msg),
+            Buffer = empty
+        )
     ).
 
 %-----------------------------------------------------------------------------%
+
+:- type current_and_next_event
+    --->    current_and_next_event(content_event, buffer).
+
 
 :- pred get_stag_or_empty_elem_tag(io.input_stream::in, char::in,
     maybe_error(current_and_next_event, xml_error)::out,
@@ -355,13 +394,13 @@ get_stag_or_empty_elem_tag(Stream, NameStartChar, X, !IO) :-
                 TagType = stag,
                 X = ok(current_and_next_event(
                     elem_stag(ElemName, Attributes),
-                    next_event_unknown_yet
+                    empty
                 ))
             ;
                 TagType = empty_elem_tag,
                 X = ok(current_and_next_event(
                     elem_stag(ElemName, Attributes),
-                    etag_past_empty_elem_tag(ElemName)
+                    etag(ElemName)
                 ))
             )
         ;
